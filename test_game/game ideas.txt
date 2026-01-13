@@ -1,0 +1,100 @@
+to do
+
+menus and et.c.  Title of menu in the screen
+Main menu
+	Continue
+	New game
+	Load game
+	Save game
+	Settings
+	About
+	Exit  confirmation if save  (exit with ESC and pressing the window button also should have the confirm dialog)
+
+Settings menu
+	Graphics
+		windowed/ fullscreen
+		screen size
+	Controlls
+	Sounds
+		volume
+		music?
+	Back
+
+UI system
+try to do more retained mode, remove text for button and labels and send them in the draw procedure to reduce the amount of states.
+reuse image buffer when nothing changes
+
+
+UI elements
+	needed
+	dissable function
+	check boxes box with label to the left  check mark and color
+	select options with labels to the left and drop down alternatives
+	input text boxes filter inputs to only valid character and show if the whole value is valid (color)
+	visual tabs in the top of window to change views
+	player should be able to set default value
+
+	could be cool to make
+	file select dialog save/load
+	drop down menu
+	combobox
+	separate windows
+	dialogs
+	containers
+	tables
+	Layouts?
+	script similar to html to define layouts and elements
+
+Text box improvments
+	undo Ctrl + Z
+does the mouse affect other widgets when using slider outside box?
+World
+	procedurally generated world
+	exit with ESC any visible exit button?
+	Player character 8 directions with animations
+	Player movement WASD no momentum
+	Player interacting with object mouse? reach distance? Keyboard E?
+ 	pickup stuff, talk with peaple, open stuff, inspect stuff  - dialog with options
+ 	player status bar?
+ 	player inventory I or E Click on player?
+ 	player gear
+ 	minimap?
+ 	on hover with entities that is possible to interact with
+ 	hitboxes and collision detection
+
+about screen
+	Game name and version
+	author Nils Ericson
+	Date 
+	Licensing
+
+Load game in background
+
+game ideas
+
+gameplay
+collect stuff automate get stronger
+procedurally generate interesting loot that can be used to craft/build
+start with top down map run around pick up and discover fight other areas could have other perspectives
+
+procedurally generated loot/ stuff to find with interesting properties
+crafting/building
+automation
+build base
+Puzzles for crafting building
+dungeons
+collect plants, animals genetically enhance
+
+// Instructions to LLM
+be critical don't praise me.
+
+
+Magic crystal to automate crafting benches, spawn with one crystal?
+crafting benches grind high quality items, to build more powerfull crafting benches?
+
+Fantasy metals
+combine real metals with elemental manna
+titanium + light manna = mythrill, lighter than aluminium harder than steel, transfears light and wind magic
+tungsten + dark manna = Orichalcium, hard heavy resistant to most stuff like heat,  transfears dark and water magic
+Iridium + all manna combined = 
+
