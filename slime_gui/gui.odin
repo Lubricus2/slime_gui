@@ -383,14 +383,16 @@ handle_common :: proc(w_base: ^Widget_Base, cursor: rl.MouseCursor) {
 begin_box :: proc(style: ^Style = nil, width: Size_Option = .Fit_Content, height: Size_Option = .Fit_Content, place: Place_Option = .After_Last_Child, layout: Layout_Mode = .Vertical, spacing: f32 = DEFAULT_PADDING, cols: int = 1, id_salt := 0, c_loc := #caller_location) {
 	comp, idx := build_widget(&gui.boxes, id_salt, c_loc, style)
 	// Reset ephemeral base data
-	clear(&comp.children)
     comp.width_opt = width
     comp.height_opt = height
     comp.place_opt = place
     // Update Box specific Data
+    comp.children = make([dynamic]Widget_Ref, 0, 8, context.temp_allocator)
     comp.layout_mode = layout
     comp.widget_spacing = spacing
     comp.cols = cols
+    comp.col_widths = make([dynamic]f32, 0, cols, context.temp_allocator)
+    for _ in 0..<cols do append(&comp.col_widths, 0.0)
      // Create reference
 	ref := Widget_Ref{ kind = .Box, idx = idx }
 	append_to_stack(ref, &comp.Base)  
@@ -550,6 +552,11 @@ draw_ref :: proc(ref: Widget_Ref) {
     case .Box:
     	box_draw(&gui.boxes.items[ref.idx])
     }
+}
+
+@private
+to_fixed_roundness :: proc(rect: rl.Rectangle, radius_p: f32) -> f32 {
+	return (radius_p * 2) / min(rect.width, rect.height)
 }
 
 @private

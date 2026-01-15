@@ -3,6 +3,26 @@ package slimeGUI
 import "core:fmt"
 import rl "vendor:raylib"
 
+// compute column width for boxes with the .Grid layout
+compute_grid_widths :: proc(box: ^Box) {
+    //if box.layout_mode != .Grid || len(box.children) == 0 do return
+    if len(box.children) == 0 do return
+    
+    cols := max(1, box.cols)
+    // The array is already initialized in begin_box, so just reset values
+    /*
+    for i in 0..<len(box.col_widths) {
+        box.col_widths[i] = 0
+    }
+    */
+
+    for child_ref, i in box.children {
+        child := get_base(child_ref)
+        col_idx := i % cols  // modulu to wrap around the column index
+        box.col_widths[col_idx] = max(box.col_widths[col_idx], child.rect.width)
+    }
+}
+
 // bottom-up sizing
 compute_sizes :: proc(ref: Widget_Ref) {	
 	w_base := get_base(ref)
@@ -13,6 +33,7 @@ compute_sizes :: proc(ref: Widget_Ref) {
         for child_ref in box.children {
             compute_sizes(child_ref)
         }
+        compute_grid_widths(box)
     }
 
     // helper to check if this is a root widget
@@ -51,11 +72,19 @@ compute_sizes :: proc(ref: Widget_Ref) {
         } else {
             fmt.printfln("width .fit_content is not supporterd for the widget kind: %v", ref.kind)
         }
-    	w_base.rect.width = clamp(w_base.rect.width, w.min, w.max)
+        w_base.rect.width = max(w_base.rect.width, w.min)
+        if w.max != 0 {
+            w_base.rect.width = min(w_base.rect.width, w.max)
+        }
+    	//w_base.rect.width = clamp(w_base.rect.width, w.min, w.max)
     case Size_Percent:
    		if is_root {
              // Fix: Percent of screen if root
             w_base.rect.width = f32(rl.GetScreenWidth()) * (f32(w.percent) / 100.0)
+            w_base.rect.width = max(w_base.rect.width, w.min)
+            if w.max != 0 {
+                w_base.rect.width = min(w_base.rect.width, w.max)
+            }
         } else {
         	// must be done in a second pass of the tree / compute_size_grow_c() proc so set to 0 for now
             w_base.rect.width = 0
@@ -90,12 +119,20 @@ compute_sizes :: proc(ref: Widget_Ref) {
         } else {
             fmt.println("height .fit_content is not supporterd for the widget kind: %v", ref.kind)
         }
-    	w_base.rect.height = clamp(w_base.rect.height, h.min, h.max)
+    	//w_base.rect.height = clamp(w_base.rect.height, h.min, h.max)
+        w_base.rect.height = max(w_base.rect.height, h.min)
+        if h.max != 0 {
+            w_base.rect.height = min(w_base.rect.height, h.max)
+        }
     case Size_Percent:
-    	// must be done in a second pass of the tree so set to 0 for now
     	if is_root {
             w_base.rect.height = f32(rl.GetScreenHeight()) * (f32(h.percent) / 100.0)
+            w_base.rect.height = max(w_base.rect.height, h.min)
+            if h.max != 0 {
+                w_base.rect.height = min(w_base.rect.height, h.max)
+            }
         } else {
+            // must be done in a second pass of the tree so set to 0 for now
             w_base.rect.height = 0
         }
 	}
@@ -132,7 +169,12 @@ compute_size_grow :: proc(ref: Widget_Ref) {
                 fixed_width_used += w
             case Size_Percent:
                 // Percent is "fixed" relative to parent, so we calculate it now
-                child.rect.width = clamp(parent_content_w * (f32(w.percent) / 100.0), w.min, w.max)
+                spacing_total := spacing * f32(max(0, child_count - 1))
+                child.rect.width = (parent_content_w - spacing_total) * (f32(w.percent) / 100.0) 
+                child.rect.width = max(child.rect.width, w.min)
+                if w.max != 0 {
+                    child.rect.width = min(child.rect.width, w.max)
+                }
                 fixed_width_used += child.rect.width
             case Fit:
                 if w == .Fit_Content || w == .Use_Style {
@@ -153,7 +195,12 @@ compute_size_grow :: proc(ref: Widget_Ref) {
             case Size_Pixels:
                 fixed_height_used += h
             case Size_Percent:
-                child.rect.height = clamp(parent_content_h * (f32(h.percent) / 100.0), h.min, h.max)
+                spacing_total := spacing * f32(max(0, child_count - 1))
+                child.rect.height = (parent_content_h - spacing_total) * (f32(h.percent) / 100.0)
+                child.rect.height = max(child.rect.height, h.min)
+                if h.max != 0 {
+                    child.rect.height = min(child.rect.height, h.max)
+                }
                 fixed_height_used += child.rect.height
             case Fit:
                 if h == .Fit_Content || h == .Use_Style {
