@@ -100,6 +100,7 @@ store_get_or_create :: proc(store: ^Store($T), id: int) ->(^T, bool) {
 store_acquire :: proc(store: ^Store($T), id: int) -> int {
 	idx, found := store.id_to_idx[id]
 	if found {
+		assert(!store.pool.used[idx], "UI ID Collision: This widget ID was already used this frame. Check for loops or missing id_salt.") // specific error message should not be sett here
 		store.pool.used[idx] = true
 		return idx
 	} else {

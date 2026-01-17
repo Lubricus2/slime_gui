@@ -142,6 +142,8 @@ compute_size_grow :: proc(ref: Widget_Ref) {
 	//w_base := get_base(ref)
     if ref.kind == .Box {
     	box := gui.boxes.pool.items[ref.idx]
+        assert(box.style != nil, fmt.tprintfln("Box [idx:%d] has no style assigned", ref.idx))
+
         layout := box.layout_mode
         spacing := box.widget_spacing
         padding := f32(box.style.padding)
@@ -358,6 +360,7 @@ place_tree :: proc(ref: Widget_Ref, x: f32, y: f32) {
     		}
     	case .Grid:
 			cols := box.cols
+            assert(cols > 0, "Box layout set to .Grid but cols is 0 or negative")
             if cols <= 0 { cols = 1 }
             // Place children
             row_max_h: f32

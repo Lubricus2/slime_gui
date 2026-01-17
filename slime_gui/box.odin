@@ -74,7 +74,6 @@ box_fit_content_h :: proc(box: ^Box) {
     	}
     	total_h += widget_spacing * (f32(child_count) - 1)
     case .Grid:
-
     	col := 0
     	row := 0
     	row_h :f32= 0
@@ -83,10 +82,15 @@ box_fit_content_h :: proc(box: ^Box) {
     		row_h = max(child_base.rect.height, row_h)
     		col += 1
     		if col >= cols {
-    			col = 0
-    			row +=1
     			total_h += row_h
+    			row +=1
+    			col = 0
+    			row_h = 0
     		}
+    	}
+    	if col > 0 {
+        	total_h += row_h
+        	row += 1
     	}
         total_h += widget_spacing * f32(row - 1)
     }

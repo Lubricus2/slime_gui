@@ -1,7 +1,7 @@
 package slimeGUI
 import rl "vendor:raylib"
 import "base:runtime"
-//import "core:fmt"
+import "core:fmt"
 
 /*
 A graphical immediate mode user interface library written in Odin on top of raylib.
@@ -39,6 +39,7 @@ only do layouting if anything has changed needing it to be updated
 */
 
 DEFAULT_PADDING :: 10.0
+//ROOT_REF :: Widget_Ref{ kind = .None, idx = -1 }
 
 Layout_Mode :: enum {
 	Vertical,
@@ -192,7 +193,7 @@ default_style := Style {
 }
 
 @private
-Widget_Kind :: enum { Button, Checkbox, Slider, Text_Box, Label, Box, }
+Widget_Kind :: enum { None = 0, Button, Checkbox, Slider, Text_Box, Label, Box, }
 
 @private
 gui: GUI_Context
@@ -225,6 +226,12 @@ Widget_Base :: struct {
 
 @private
 get_base :: proc(ref: Widget_Ref) -> ^Widget_Base {
+	//fmt.printfln("ref kind = %v", ref.kind)
+	if ref.kind == .None {
+        fmt.printfln("CRITICAL: get_base called with .None kind. Index: %d", ref.idx)
+        panic("Uninitialized Widget_Ref")
+    }
+    assert(ref.idx >= 0, "Widget index cannot be negative")
 	switch ref.kind {
     case .Button:
         return &gui.buttons.items[ref.idx].Base
@@ -238,11 +245,20 @@ get_base :: proc(ref: Widget_Ref) -> ^Widget_Base {
     	return &gui.checkboxes.items[ref.idx].Base
     case .Slider:
     	return &gui.sliders.items[ref.idx].Base
+    case .None:
+    	panic("Attempted to get_base of an uninitialized Widget_Ref")
     }
     return nil
 }
 
 begin_gui :: proc(style: ^Style = nil, font: rl.Font = {} ) {
+	//assert(font.texture.id > 0, "Passed an invalid/unloaded font to begin_gui")
+	// Ensure we didn't leave widgets on the stack from the last frame
+    if len(gui.widget_stack) != 0 {
+        fmt.println("ERROR: Widget stack was not empty at start of frame. Missing end_box calls.")
+        clear(&gui.widget_stack)
+    }
+
 	if style != nil {
 		gui.default_style = style
 	} else {
@@ -301,9 +317,10 @@ active :: proc(id: int) -> bool {
 append_to_stack :: proc(ref: Widget_Ref, base: ^Widget_Base) {
 	if len(gui.widget_stack) > 0 {
         parent_ref := gui.widget_stack[len(gui.widget_stack)-1]
-        //parent := get_base(parent_ref)
         parent := &gui.boxes.items[parent_ref.idx]
         // Add myself to parent's children
+        // CHEAP CHECK: Is the child actually the parent?
+    	assert(ref != parent_ref, "UI Circular Reference: A widget cannot be a child of itself. Did you forget id_salt in a loop/recursion?")
         append(&parent.children, ref)
         base.parent_ref = parent_ref
     } else {
@@ -350,13 +367,13 @@ build_widget :: proc(store: ^Store($T), id_salt: int, c_loc: runtime.Source_Code
     idx := store_acquire(store, id)
     comp := &store.items[idx]
     // Common reset logic
-    comp.Base.id = id
-    comp.Base.parent_ref = {}
+    comp.id = id
+    comp.parent_ref = {}
     //clear(&comp.children)
     if style == {} {
-    	comp.Base.style = gui.default_style
+    	comp.style = gui.default_style
 	} else {
-    	comp.Base.style = style
+    	comp.style = style
 	}
     return comp, idx
 }
@@ -381,6 +398,7 @@ handle_common :: proc(w_base: ^Widget_Base, cursor: rl.MouseCursor) {
 
 // the start build procedure for Box
 begin_box :: proc(style: ^Style = nil, width: Size_Option = .Fit_Content, height: Size_Option = .Fit_Content, place: Place_Option = .After_Last_Child, layout: Layout_Mode = .Vertical, spacing: f32 = DEFAULT_PADDING, cols: int = 1, id_salt := 0, c_loc := #caller_location) {
+	assert(len(gui.widget_stack) < 128, "Widget stack overflow: Did you forget to call end_box()?")
 	comp, idx := build_widget(&gui.boxes, id_salt, c_loc, style)
 	// Reset ephemeral base data
     comp.width_opt = width
@@ -402,6 +420,7 @@ begin_box :: proc(style: ^Style = nil, width: Size_Option = .Fit_Content, height
 
 // the end build procedure for Box
 end_box :: proc() {
+	assert(len(gui.widget_stack) > 0, "Widget stack underflow: Called end_box() too many times")
 	if len(gui.widget_stack) == 0 { return }
     pop(&gui.widget_stack)
 }
@@ -551,6 +570,8 @@ draw_ref :: proc(ref: Widget_Ref) {
     	label_draw(&gui.labels.items[ref.idx])
     case .Box:
     	box_draw(&gui.boxes.items[ref.idx])
+    case .None:
+    	panic("called draw_ref with an None ref kind")
     }
 }
 
