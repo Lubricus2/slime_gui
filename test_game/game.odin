@@ -38,30 +38,32 @@ main :: proc() {
 		width = 256,
 		height = 54,
 		focus_color = rl.SKYBLUE,
+		focus_offset = -5,
+		focus_line_width = 2,
 		corner_radius = 8,
 		idle = {
 			bg_color = rl.LIGHTGRAY,
 			border_color = rl.DARKGRAY,
 			text_color = rl.DARKGRAY,
-			border_thickness = 1,
+			border_width = 1,
 		},
 		hover = {
 			bg_color = rl.Color{ 160, 160, 255, 255 },
 			border_color = rl.DARKBLUE,
 			text_color = rl.DARKGRAY,
-			border_thickness = 2,
+			border_width = 2,
 		},
 		active = {
 			bg_color = rl.DARKGRAY,
 			border_color = rl.DARKGRAY,
 			text_color = rl.RAYWHITE,
-			border_thickness = 2,
+			border_width = 2,
 		},
 		disabled = {
 			bg_color = rl.LIGHTGRAY,
 			border_color = rl.LIGHTGRAY,
 			text_color = rl.GRAY,
-			border_thickness = 1,
+			border_width = 1,
 		},
 	}
 

@@ -120,14 +120,16 @@ Style :: struct {
 	active: Style_State,
 	disabled: Style_State,
 	focus_color: rl.Color,
+	focus_offset: f32,
+	focus_line_width: f32,
 	corner_radius: f32,  // corder radius in pixels
 }
 
 Style_State :: struct {
-	bg_color: rl.Color,
+	bg_color: rl.Color,  // transparent is transparency = 0 none?
 	border_color: rl.Color,
 	text_color: rl.Color,
-	border_thickness: f32,
+	border_width: f32,   // 0 could be no border
 }
 
 @private
@@ -165,30 +167,32 @@ default_style := Style {
 	width = 256,
 	height = 54,
 	focus_color = rl.SKYBLUE,
+	focus_offset = -5,
+	focus_line_width = 2,
 	corner_radius = 8,
 	idle = {
 		bg_color = rl.LIGHTGRAY,
 		border_color = rl.DARKGRAY,
 		text_color = rl.DARKGRAY,
-		border_thickness = 1,
+		border_width = 1,
 	},
 	hover = {
 		bg_color = rl.Color{ 160, 160, 255, 255 },
 		border_color = rl.DARKBLUE,
 		text_color = rl.DARKGRAY,
-		border_thickness = 2,
+		border_width = 2,
 	},
 	active = {
 		bg_color = rl.DARKGRAY,
 		border_color = rl.DARKGRAY,
 		text_color = rl.RAYWHITE,
-		border_thickness = 2,
+		border_width = 2,
 	},
 	disabled = {
 		bg_color = rl.LIGHTGRAY,
 		border_color = rl.LIGHTGRAY,
 		text_color = rl.GRAY,
-		border_thickness = 1,
+		border_width = 1,
 	},
 }
 
@@ -575,30 +579,119 @@ draw_ref :: proc(ref: Widget_Ref) {
     }
 }
 
+
+
+// raylib draws the line for DrawRectangleRoundedLinesEx outside the rectangle, 
+// moving it inside don't work if the linewith > radius. So here we go with a custom rectangle with rounded cornders
 @private
-to_fixed_roundness :: proc(rect: rl.Rectangle, radius_p: f32) -> f32 {
-	return (radius_p * 2) / min(rect.width, rect.height)
+draw_rounded_border :: proc(rect: rl.Rectangle, radius: f32, thick: f32, color: rl.Color) {
+    if thick <= 0 || color.a == 0 do return
+
+    // Clamp radius to half size to avoid drawing circles larger than the box
+    r := min(radius, min(rect.width, rect.height) / 2)
+    
+    // The "Inner Radius" is 0 if the border is thicker than the corner radius.
+    // This is what creates the "Filled Wedge" for the sharp inner corner case.
+    inner_r := max(0, r - thick)
+
+    // Draw 4 Corner Rings
+    // Top-Left (180 to 270 degrees)
+    rl.DrawRing({rect.x + r, rect.y + r}, inner_r, r, 180, 270, 16, color)
+    // Top-Right (270 to 360/0 degrees)
+    rl.DrawRing({rect.x + rect.width - r, rect.y + r}, inner_r, r, 270, 360, 16, color)
+    // Bottom-Right (0 to 90 degrees)
+    rl.DrawRing({rect.x + rect.width - r, rect.y + rect.height - r}, inner_r, r, 0, 90, 16, color)
+    // Bottom-Left (90 to 180 degrees)
+    rl.DrawRing({rect.x + r, rect.y + rect.height - r}, inner_r, r, 90, 180, 16, color)
+
+    // Note: We extend the rectangles into the corners if 'thick > r' to fill the gap.
+    
+    // Top Bar (between the curve starts)
+    rl.DrawRectangleRec({
+        x = rect.x + r, 
+        y = rect.y, 
+        width = rect.width - 2*r, 
+        height = thick,
+    }, color)
+
+    // Bottom Bar
+    rl.DrawRectangleRec({
+        x = rect.x + r, 
+        y = rect.y + rect.height - thick, 
+        width = rect.width - 2*r, 
+        height = thick,
+    }, color)
+
+    // Left Bar (Vertical)
+    // Note: We adjust height to avoid overdrawing the Top/Bottom bars if thickness is small,
+    // but if thickness is large, we rely on the overlap to fill the sharp inner corner.
+    rl.DrawRectangleRec({
+        x = rect.x, 
+        y = rect.y + r, 
+        width = thick, 
+        height = rect.height - 2*r,
+    }, color)
+
+    // Right Bar
+    rl.DrawRectangleRec({
+        x = rect.x + rect.width - thick, 
+        y = rect.y + r, 
+        width = thick, 
+        height = rect.height - 2*r,
+    }, color)
+    
+    // FIX for "Sharp Inner Corner" Gaps
+    // If thickness > radius, the rectangular bars above stop at 'r', but the 
+    // wedge stops at 'r' too. We need to fill the square area inside the corner.
+    if thick > r {
+        // Top-Left Inner Filler
+        rl.DrawRectangleRec({rect.x + r, rect.y + r, thick - r, thick - r}, color)
+        // Top-Right Inner Filler
+        rl.DrawRectangleRec({rect.x + rect.width - thick, rect.y + r, thick - r, thick - r}, color)
+        // Bottom-Left Inner Filler
+        rl.DrawRectangleRec({rect.x + r, rect.y + rect.height - thick, thick - r, thick - r}, color)
+        // Bottom-Right Inner Filler
+        rl.DrawRectangleRec({rect.x + rect.width - thick, rect.y + rect.height - thick, thick - r, thick - r}, color)
+    }
 }
 
 @private
 draw_rect :: proc(rect: rl.Rectangle, style: ^Style, style_state: Style_State) {
 	if style.corner_radius == 0 {
-		rl.DrawRectangleRec(rec = rect, color = style_state.bg_color)
-		if (style_state.border_color != style_state.bg_color) {
-			rl.DrawRectangleLinesEx(rec = rect, lineThick = style_state.border_thickness, color = style_state.border_color)
+		if style_state.bg_color.a > 0 {
+			rl.DrawRectangleRec(rec = rect, color = style_state.bg_color)
+		}
+		if style_state.border_color != style_state.bg_color && style_state.border_width > 0 && style_state.border_color.a > 0 {
+			rl.DrawRectangleLinesEx(rec = rect, lineThick = style_state.border_width, color = style_state.border_color)
 		}
 	} else {
-		roundness := to_fixed_roundness(rect, style.corner_radius)
-		rl.DrawRectangleRounded(rec = rect, roundness = roundness, segments = 8, color = style_state.bg_color)
-		if (style_state.border_color != style_state.bg_color) {
-			rl.DrawRectangleRoundedLinesEx(rec = rect, roundness = roundness, segments = 8, lineThick = style_state.border_thickness, color = style_state.border_color)
+		
+		if style_state.bg_color.a > 0 {
+			bg_roundness := (style.corner_radius * 2) / min(rect.width, rect.height)
+			rl.DrawRectangleRounded(rec = rect, roundness = bg_roundness, segments = 8, color = style_state.bg_color)
+		}
+		if style_state.border_color != style_state.bg_color && style_state.border_width > 0 && style_state.border_color.a > 0 {
+			draw_rounded_border(rect = rect, radius = style.corner_radius, thick = style_state.border_width, color = style_state.border_color)
+			/*
+			inner_rect := rl.Rectangle{
+            	x      = rect.x + style_state.border_width,
+            	y      = rect.y + style_state.border_width,
+           	 	width  = rect.width - style_state.border_width * 2,
+            	height = rect.height - style_state.border_width * 2,
+        	}
+        	adjusted_radius := max(0, style.corner_radius - style_state.border_width)
+			border_roundness := (adjusted_radius * 2) / min(inner_rect.width, inner_rect.height)
+			rl.DrawRectangleRoundedLinesEx(rec = inner_rect, roundness = border_roundness, segments = 8, lineThick = style_state.border_width, color = style_state.border_color)
+			*/
 		}
 	}
 }
 
 @private
 draw_focus :: proc(rect: rl.Rectangle, style: ^Style) {
-	off :f32= -5
-	line_w :f32= 2
-	rl.DrawRectangleLinesEx(rec = {x = rect.x - off, y = rect.y - off, width = rect.width + off * 2, height = rect.height + off * 2, }, lineThick = line_w, color = style.focus_color)
+	off := style.focus_offset
+	line_w := style.focus_line_width
+	if style.focus_line_width > 0 && style.focus_color.a > 0 {
+		rl.DrawRectangleLinesEx(rec = {x = rect.x - off, y = rect.y - off, width = rect.width + off * 2, height = rect.height + off * 2, }, lineThick = line_w, color = style.focus_color)
+	}	
 }

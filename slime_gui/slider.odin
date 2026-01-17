@@ -99,7 +99,7 @@ slider_draw :: proc(slider: ^Slider) {
 		rect_color = style.hover.bg_color
 	}
 	rl.DrawRectangleRec(rec = Base.rect, color = rect_color)
-	rl.DrawRectangleLinesEx(rect, 1, style_state.border_color)
+	rl.DrawRectangleLinesEx(rect, style_state.border_width, style_state.border_color)
 
 	if focused(tab_order) && !disabled {
 		draw_focus(rect, style)

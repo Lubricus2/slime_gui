@@ -280,18 +280,18 @@ text_box_draw :: proc(text_box: ^Text_Box) {
 	//frame_timer += rl.GetFrameTime()
 
 	style_state: Style_State
-	if Base.disabled {
-    	style_state = Base.style.disabled
-	} else if active(Base.id) {
-    	style_state = Base.style.active
-	} else if Base.hover {
-    	style_state = Base.style.hover
+	if disabled {
+    	style_state = style.disabled
+	} else if active(id) {
+    	style_state = style.active
+	} else if hover {
+    	style_state = style.hover
 	} else {
-    	style_state = Base.style.idle
+    	style_state = style.idle
 	}
 
 	rl.DrawRectangleRec(rec = Base.rect, color = Base.style.idle.bg_color)
-	rl.DrawRectangleLinesEx(Base.rect, 1, style_state.border_color)
+	rl.DrawRectangleLinesEx(Base.rect, style_state.border_width, style_state.border_color)
 
 	if focused(tab_order) && !disabled {
 		draw_focus(rect, style)

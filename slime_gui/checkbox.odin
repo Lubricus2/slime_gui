@@ -54,7 +54,7 @@ checkbox_draw :: proc(checkbox: ^Checkbox) {
 	}
 
 	rl.DrawRectangleRec(rec = Base.rect, color = style_state.bg_color)
-	rl.DrawRectangleLinesEx(rect, 1, style_state.border_color)
+	rl.DrawRectangleLinesEx(rect, style_state.border_width, style_state.border_color)
 	
 	if focused(tab_order) && !disabled {
 		draw_focus(rect, style)

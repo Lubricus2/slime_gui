@@ -9,15 +9,15 @@ import sg "../slime_gui"
 import "core:fmt"
 
 Test_State :: struct {
-    ui_font:      rl.Font,
-    check_val:    bool,
-    slider_val:   i32,
-    text_input:   sg.Text_Buffer,
-    scroll_pos:   f32,
-    show_stress:      bool,
-    grid_cols:        i32,
-    nest_depth:       i32,
-    paradox_enabled:  bool,
+    ui_font: rl.Font,
+    check_val: bool,
+    slider_val: i32,
+    text_input: sg.Text_Buffer,
+    scroll_pos: f32,
+    show_stress: bool,
+    grid_cols: i32,
+    nest_depth: i32,
+    paradox_enabled: bool,
     show_test_a: bool,
     show_test_b: bool,
     show_test_c: bool,
@@ -26,7 +26,6 @@ Test_State :: struct {
 }
 
 t: Test_State
-
 
 test_suite :: proc() {
     sg.begin_gui(font = t.ui_font)
@@ -42,7 +41,6 @@ test_suite :: proc() {
         sg.checkbox(&t.show_test_c, width = 60)
         sg.label("Test D:", width = .Fit_Content)
         sg.checkbox(&t.show_test_d, width = 60)
-        
         
         if t.show_test_a {
             sg.label("Grid Cols:", width = .Fit_Content)
@@ -116,8 +114,14 @@ test_suite :: proc() {
                 sg.button("Nested A")
                 // Inner box 2 (nested deeper)
                 sg.begin_box(layout = .Horizontal, width = .Fit_Parent)
+                    style := sg.get_default_style()
+                    tstyle := style
+                    tstyle.hover.border_width = 20
+                    tstyle.hover.bg_color = rl.BLANK
+                    tstyle.idle.bg_color = rl.WHITE
                     sg.button("B1", width = sg.Size_Percent{percent = 50})  //
                     sg.button("B2", width = sg.Size_Percent{percent = 50, min = 40, max = 200}) // sg.Size_Percent{percent = 50}
+                    style = sg.get_default_style()
                 sg.end_box()
             sg.end_box()
             
@@ -186,6 +190,5 @@ main :: proc() {
         rl.EndDrawing()
         free_all(context.temp_allocator)
     }
-
     rl.CloseWindow()
 }
