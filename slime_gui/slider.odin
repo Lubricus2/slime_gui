@@ -109,10 +109,10 @@ slider_draw :: proc(slider: ^Slider) {
     	{rect.x + style.padding, Base.rect.y + Base.rect.height/2},
     	{rect.x + rect.width - Base.style.padding, Base.rect.y + Base.rect.height/2},
     	4,
-    	style_state.border_color,
+    	style_state.text_color,
 	)
 	centerX := i32(rect.x + style.padding) + val_pix
 	centerY := i32(rect.y + rect.height/2)
 	rl.DrawCircle(centerX, centerY, 8, style_state.bg_color)
-	rl.DrawCircleLines(centerX, centerY, 8, style_state.border_color)
+	rl.DrawCircleLines(centerX, centerY, 8, style_state.text_color)
 }

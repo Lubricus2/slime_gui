@@ -61,7 +61,7 @@ main :: proc() {
 		},
 		disabled = {
 			bg_color = rl.LIGHTGRAY,
-			border_color = rl.LIGHTGRAY,
+			border_color = rl.GRAY,
 			text_color = rl.GRAY,
 			border_width = 1,
 		},

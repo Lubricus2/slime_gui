@@ -95,7 +95,7 @@ test_suite :: proc() {
          // 1. TOP BAR - Testing Horizontal Layout and Absolute Centering
         sg.begin_box( width = .Fit_Content, height = 60, layout = .Horizontal, place = sg.Place_xy{.Right, .Top},)
             sg.label("SYSTEM STRESS TEST", width = .Fit_Content)
-            sg.button("Header 1", width = 200)
+            sg.button("Header 1", width = 200, disabled = true)
             sg.button("Header 2", width = 200)
             if sg.button("Reset Values", width = 200) { 
                 t.slider_val = 50

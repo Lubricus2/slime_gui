@@ -43,17 +43,17 @@ checkbox_draw :: proc(checkbox: ^Checkbox) {
 	assert(Base.style != nil, "checkbox_draw called with the style pointer == nil")
 
 	style_state: Style_State
-	if Base.disabled {
-    	style_state = Base.style.disabled
-	} else if active(Base.id) {
-    	style_state = Base.style.active
+	if disabled {
+    	style_state = style.disabled
+	} else if active(id) {
+    	style_state = style.active
 	} else if Base.hover {
-    	style_state = Base.style.hover
+    	style_state = style.hover
 	} else {
-    	style_state = Base.style.idle
+    	style_state = style.idle
 	}
 
-	rl.DrawRectangleRec(rec = Base.rect, color = style_state.bg_color)
+	rl.DrawRectangleRec(rec = rect, color = style_state.bg_color)
 	rl.DrawRectangleLinesEx(rect, style_state.border_width, style_state.border_color)
 	
 	if focused(tab_order) && !disabled {
@@ -61,7 +61,7 @@ checkbox_draw :: proc(checkbox: ^Checkbox) {
 	}
 
     // Draw outline of inner square
-    inner_size := f32(Base.style.font_size)
+    inner_size := f32(style.font_size)
 
 	inner := rl.Rectangle{
         x = Base.rect.x + f32(Base.style.padding),
@@ -69,12 +69,12 @@ checkbox_draw :: proc(checkbox: ^Checkbox) {
         width = inner_size,
         height = inner_size,
     }
-    rl.DrawRectangleLinesEx(inner, 2.0, rl.BLACK)
+    rl.DrawRectangleLinesEx(inner, 2.0, style_state.text_color)
 
     // check mark
     cm_pad :: 5
     if checked^ {
-        rl.DrawLineEx({inner.x + cm_pad, inner.y + inner.height/2}, {inner.x + inner.width/2, inner.y + inner.height - cm_pad}, 3.0, rl.BLACK)
-        rl.DrawLineEx({inner.x + inner.width/2, inner.y + inner.height - cm_pad}, {inner.x + inner.width - cm_pad, inner.y + cm_pad}, 3.0, rl.BLACK)
+        rl.DrawLineEx({inner.x + cm_pad, inner.y + inner.height/2}, {inner.x + inner.width/2, inner.y + inner.height - cm_pad}, 3.0, style_state.text_color)
+        rl.DrawLineEx({inner.x + inner.width/2, inner.y + inner.height - cm_pad}, {inner.x + inner.width - cm_pad, inner.y + cm_pad}, 3.0, style_state.text_color)
     }
 }

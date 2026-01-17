@@ -12,11 +12,8 @@ Steps done each frame
 4. place widgets and draw them	
 
 Todo:
-test suit, especially for the layout engine
 tooltip support
 custom tab_order
-centrailize click logic for focusable widgets?
-adding some way to say an widget is disabled
 global UI scaling
 
 more layout options 
@@ -35,7 +32,7 @@ Input Handling & Z-Order, stuff under another widget can in some cases take the 
 Optimizations
 don't garbage collect and delete from pools every frame. Maybe stagger garbage collecten for different pools
 hover/mouse handling? collision detection with mouse, use the tree structure?
-only do layouting if anything has changed needing it to be updated
+only do layouting if anything has changed that makes it needed to be updated
 */
 
 DEFAULT_PADDING :: 10.0
@@ -215,7 +212,6 @@ base struct for widgets
 Widget_Base :: struct {
  	id: int,			// unique id made from the caller position outside the library
  	parent_ref: Widget_Ref,		// index to the parent
-	//children: [dynamic]Widget_Ref,  // array of children idx for container style widgets as Box
 	// Layout
 	rect: rl.Rectangle,		// the calculated size and place
 	width_opt: Size_Option,
@@ -373,7 +369,6 @@ build_widget :: proc(store: ^Store($T), id_salt: int, c_loc: runtime.Source_Code
     // Common reset logic
     comp.id = id
     comp.parent_ref = {}
-    //clear(&comp.children)
     if style == {} {
     	comp.style = gui.default_style
 	} else {
@@ -430,12 +425,13 @@ end_box :: proc() {
 }
 
 // the builder procedure for button
-button :: proc(text: cstring, style: ^Style = nil, width: Size_Option = .Use_Style, height: Size_Option = .Use_Style, place: Place_Option = .After_Last_Child, id_salt := 0, c_loc := #caller_location) -> bool {
+button :: proc(text: cstring, style: ^Style = nil, width: Size_Option = .Use_Style, height: Size_Option = .Use_Style, place: Place_Option = .After_Last_Child, id_salt := 0, c_loc := #caller_location, disabled := false) -> bool {
 	comp, idx := build_widget(&gui.buttons, id_salt, c_loc, style)
     comp.width_opt = width
     comp.height_opt = height
     comp.place_opt = place
     comp.tab_order = gui.no_of_focusable
+    comp.disabled = disabled
     gui.no_of_focusable +=  1 
     // Update Button specific Data
 	comp.title = text
@@ -461,13 +457,14 @@ label :: proc(text: cstring, style: ^Style = nil, width :Size_Option = .Use_Styl
 	append_to_stack(ref, &comp.Base)
 }
 
-checkbox :: proc(checked: ^bool, style: ^Style = nil, width :Size_Option = .Use_Style, height :Size_Option  = .Use_Style, place: Place_Option = .After_Last_Child, id_salt := 0, c_loc := #caller_location) {
+checkbox :: proc(checked: ^bool, style: ^Style = nil, width :Size_Option = .Use_Style, height :Size_Option  = .Use_Style, place: Place_Option = .After_Last_Child, id_salt := 0, c_loc := #caller_location, disabled := false) {
 	comp, idx := build_widget(&gui.checkboxes, id_salt, c_loc, style)
     // Reset ephemeral base data
     comp.width_opt = width
     comp.height_opt = height
     comp.place_opt = place
     comp.tab_order = gui.no_of_focusable
+    comp.disabled = disabled
     gui.no_of_focusable +=  1 
     // Update Checkbox specific Data
    	comp.checked = checked
@@ -479,13 +476,14 @@ checkbox :: proc(checked: ^bool, style: ^Style = nil, width :Size_Option = .Use_
 	checkbox_handle_input(comp)
 }
 
-slider :: proc(min: i32, max: i32, step: i32, value: ^i32, style: ^Style = nil, width :Size_Option = .Use_Style, height : Size_Option = .Use_Style, place: Place_Option = .After_Last_Child, id_salt := 0, c_loc := #caller_location) {
+slider :: proc(min: i32, max: i32, step: i32, value: ^i32, style: ^Style = nil, width :Size_Option = .Use_Style, height : Size_Option = .Use_Style, place: Place_Option = .After_Last_Child, id_salt := 0, c_loc := #caller_location, disabled := false) {
 	comp, idx := build_widget(&gui.sliders, id_salt, c_loc, style)
     // Reset ephemeral base data
     comp.width_opt = width
     comp.height_opt = height
     comp.place_opt = place
     comp.tab_order = gui.no_of_focusable
+    comp.disabled = disabled
     gui.no_of_focusable +=  1 
     // Update Slider specific Data
 	comp.min = min
@@ -519,7 +517,7 @@ is_shift :: proc() -> bool {
     return rl.IsKeyDown(.LEFT_SHIFT) || rl.IsKeyDown(.RIGHT_SHIFT)
 }
 
-text_box :: proc(value: ^Text_Buffer, is_commited: ^bool = nil, style: ^Style = nil, width :Size_Option = .Use_Style, height: Size_Option = .Use_Style, place: Place_Option = .After_Last_Child, is_rune_valid :proc(rune)->bool = nil, is_text_valid :proc(^Text_Buffer)->bool = nil,  id_salt := 0, c_loc := #caller_location) {
+text_box :: proc(value: ^Text_Buffer, is_commited: ^bool = nil, style: ^Style = nil, width :Size_Option = .Use_Style, height: Size_Option = .Use_Style, place: Place_Option = .After_Last_Child, is_rune_valid :proc(rune)->bool = nil, is_text_valid :proc(^Text_Buffer)->bool = nil,  id_salt := 0, c_loc := #caller_location, disabled := false) {
 	comp, idx := build_widget(&gui.textboxes, id_salt, c_loc, style)
 	// Acquire from Pool
     // Reset ephemeral base data
@@ -527,6 +525,7 @@ text_box :: proc(value: ^Text_Buffer, is_commited: ^bool = nil, style: ^Style = 
     comp.height_opt = height
     comp.place_opt = place
     comp.tab_order = gui.no_of_focusable
+    comp.disabled = disabled
     gui.no_of_focusable +=  1 
     // Update Text_box specific Data
     comp.text           = value
