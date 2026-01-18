@@ -8,7 +8,7 @@ slider UI elemet writen in Odin + raylib
 TODO:
 	generics so it works with any numeric type?
 	discrete step for mouse controll can make sense in some uses.
-	if switching between widgets wile holding down key the keytimer should be zeroed
+	if switching between widgets while holding down key the keytimer should be zeroed
 */
 
 Slider :: struct {

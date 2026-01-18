@@ -24,6 +24,20 @@ more layout options
 	push/pop style on a stack
 	push/pop id_salt on a stack
 
+how handle all the different layoting options and widget states?
+different units?
+Could they be in an bitset and the values in a struct
+struct {
+	with_min: f32
+	with_max: f32
+	height_min: f32
+	heihgt_max: f32
+	with_percent/strength
+	heigt_percent/strength
+	place_x: f32  // value pixles or percent
+	place_y: f32 // value pixels or percent
+}
+
 Better names for unions, enums and structs
 
 problems
@@ -443,7 +457,7 @@ button :: proc(text: cstring, style: ^Style = nil, width: Size_Option = .Use_Sty
     return button_is_clicked(comp)
 }
 
-label :: proc(text: cstring, style: ^Style = nil, width :Size_Option = .Use_Style, height : Size_Option = .Use_Style, place: Place_Option = .After_Last_Child, id_salt := 0, c_loc := #caller_location) {
+label :: proc(text: cstring, align_text_h: Align_H = .Left, align_text_v: Align_V = .Top, wrap := false, style: ^Style = nil, width :Size_Option = .Use_Style, height : Size_Option = .Use_Style, place: Place_Option = .After_Last_Child, id_salt := 0, c_loc := #caller_location) {
 	comp, idx := build_widget(&gui.labels, id_salt, c_loc, style)
     // Reset ephemeral base data
     comp.width_opt = width
@@ -451,6 +465,9 @@ label :: proc(text: cstring, style: ^Style = nil, width :Size_Option = .Use_Styl
     comp.place_opt = place
     // Update Label specific Data
 	comp.text = text
+	comp.align_text_h = align_text_h
+	comp.align_text_v = align_text_v
+	comp.wrap = wrap
 	// Create reference
 	ref := Widget_Ref{ kind = .Label, idx = idx }
 	// Link to parent (The Stack)
@@ -499,14 +516,14 @@ slider :: proc(min: i32, max: i32, step: i32, value: ^i32, style: ^Style = nil, 
 }
 
 measure_text :: proc(text: cstring, style: ^Style) -> f32 {
-	width: f32
-	if (style.font != {}) {
-		dim := rl.MeasureTextEx(style.font, text, style.font_size, style.text_spacing)
-		width = dim.x
-	} else {
-		width = f32(rl.MeasureText(text, i32(style.font_size)))
-	}
-	return width
+	assert(style.font_size>0, "try to messure text when style.font_size <= 0")
+	// Fallback for Font
+    font := style.font
+    if font.texture.id == 0 { 
+        font = rl.GetFontDefault() 
+    }
+    dim := rl.MeasureTextEx(font, text, f32(style.font_size), style.text_spacing)
+    return dim.x
 }
 
 is_ctrl :: proc() -> bool {
@@ -574,11 +591,9 @@ draw_ref :: proc(ref: Widget_Ref) {
     case .Box:
     	box_draw(&gui.boxes.items[ref.idx])
     case .None:
-    	panic("called draw_ref with an None ref kind")
+    	panic("called draw_ref with an ref.kind = .None")
     }
 }
-
-
 
 // raylib draws the line for DrawRectangleRoundedLinesEx outside the rectangle, 
 // moving it inside don't work if the linewith > radius. So here we go with a custom rectangle with rounded cornders
@@ -593,7 +608,6 @@ draw_rounded_border :: proc(rect: rl.Rectangle, radius: f32, thick: f32, color: 
     // This is what creates the "Filled Wedge" for the sharp inner corner case.
     inner_r := max(0, r - thick)
 
-    // Draw 4 Corner Rings
     // Top-Left (180 to 270 degrees)
     rl.DrawRing({rect.x + r, rect.y + r}, inner_r, r, 180, 270, 16, color)
     // Top-Right (270 to 360/0 degrees)
@@ -602,8 +616,6 @@ draw_rounded_border :: proc(rect: rl.Rectangle, radius: f32, thick: f32, color: 
     rl.DrawRing({rect.x + rect.width - r, rect.y + rect.height - r}, inner_r, r, 0, 90, 16, color)
     // Bottom-Left (90 to 180 degrees)
     rl.DrawRing({rect.x + r, rect.y + rect.height - r}, inner_r, r, 90, 180, 16, color)
-
-    // Note: We extend the rectangles into the corners if 'thick > r' to fill the gap.
     
     // Top Bar (between the curve starts)
     rl.DrawRectangleRec({
@@ -664,7 +676,6 @@ draw_rect :: proc(rect: rl.Rectangle, style: ^Style, style_state: Style_State) {
 			rl.DrawRectangleLinesEx(rec = rect, lineThick = style_state.border_width, color = style_state.border_color)
 		}
 	} else {
-		
 		if style_state.bg_color.a > 0 {
 			bg_roundness := (style.corner_radius * 2) / min(rect.width, rect.height)
 			rl.DrawRectangleRounded(rec = rect, roundness = bg_roundness, segments = 8, color = style_state.bg_color)
