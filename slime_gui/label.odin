@@ -1,8 +1,9 @@
 #+private
 package slimeGUI
-import "core:strings"
+//import "core:strings"
 import rl "vendor:raylib"
-import "core:fmt"
+//import "core:fmt"
+import "core:mem"
 
 /*
 	widget for showing text that is not interactable
@@ -20,66 +21,84 @@ Label :: struct {
 	wrap: bool,
 }
 
-// swithces white spaces to line breaks so the text fits in the max_width, hadles fonts with kerning.
+// c style pointer hell magic for efficient handling of c string idioticity 
+// line breaks should be Unix style for it to work properly
 text_wrap :: proc(ctext: cstring, max_width: f32, style: ^Style) -> cstring {
-    if ctext == "" || max_width <= 0 do return ctext
+    if ctext == nil || max_width <= 0 do return ctext  // || ctext[0] == 0
 
     font := style.font
     if font.texture.id == 0 { font = rl.GetFontDefault() }
-    fontSize := style.font_size
-    spacing := style.text_spacing
-
-    // Quick full check
-    if rl.MeasureTextEx(font, ctext, fontSize, spacing).x <= max_width {
-        return ctext
-    }
-
-    builder := strings.builder_make(context.temp_allocator)
-    words := strings.split(string(ctext), " ", context.temp_allocator)
-
+    
+    input_len := len(ctext)
+    // Allocate to an mutable buffer with len +2 to ensure we have room for a temporary null if the string ends abruptly
+    buf := make([]u8, input_len + 2, context.temp_allocator)
+    mem.copy(&buf[0], ([^]u8)(ctext), input_len)
+    buf[input_len] = 0
+    buf[input_len + 1] = 0
+    
+    ptr := ([^]u8)(&buf[0])
+    space_width := rl.MeasureTextEx(font, " ", style.font_size, style.text_spacing).x
+    
     current_line_width: f32 = 0
-
-    // Pre-calculate width of a single space
-    space_width := rl.MeasureTextEx(font, " ", fontSize, spacing).x
-
-    for word in words {
-        if word == "" do continue
-
-        if current_line_width == 0 {
-            // First word of line: Measure normally
-            half_sandwich := fmt.tprint(word, " ", sep="")
-            word_cstr := strings.clone_to_cstring(half_sandwich, context.temp_allocator)
-            word_width := rl.MeasureTextEx(font, word_cstr, fontSize, spacing).x
-            strings.write_string(&builder, word)
-            current_line_width = word_width - space_width
-        } else {
-            /* --- THE SANDWICH STRATEGY ---  
-             measure with spaces at the begining and end of the word to capture the kerning both 
-             in the begining and end and later substract the extra white space width
-       		*/
-            sandwich := fmt.tprint(" ", word, " ", sep="")
-            sandwich_cstr := strings.clone_to_cstring(sandwich, context.temp_allocator)
-            sandwich_width := rl.MeasureTextEx(font, sandwich_cstr, fontSize, spacing).x
-            added_width := sandwich_width - space_width
-            
-            if current_line_width + added_width <= max_width {
-                // It fits
-                strings.write_string(&builder, " ")
-                strings.write_string(&builder, word)
-                current_line_width += added_width
-            } else {
-                // Wrap
-                strings.write_string(&builder, "\n")
-                strings.write_string(&builder, word)
-
-                // Re-measure just the word for the new line start
-                half_sandwich := fmt.tprint(word, " ", sep="")
-                word_cstr := strings.clone_to_cstring(half_sandwich, context.temp_allocator)
-                current_line_width = rl.MeasureTextEx(font, word_cstr, fontSize, spacing).x - space_width
+    word_start := 0
+    
+    for i := 0; i <= input_len; i += 1 {
+        curr := ptr[i]
+        
+        // Word boundary
+        if curr == ' ' || curr == '\n' || curr == 0 {
+            if i > word_start {
+                word_width: f32 = 0
+                
+                if current_line_width == 0 || word_start == 0 {
+                    // --- Case: Start of Line (Trailing Sandwich) ---
+                    // Measure "word "
+                    // We need to null-terminate at i + 1 to include the space at ptr[i]
+                    orig_next := ptr[i + 1]
+                    ptr[i + 1] = 0
+                    
+                    // Measure from word_start to i (which is a space)
+                    full_m := rl.MeasureTextEx(font, cstring(&ptr[word_start]), style.font_size, style.text_spacing).x
+                    word_width = full_m - space_width
+                    
+                    ptr[i + 1] = orig_next
+                    current_line_width = word_width
+                } else {
+                    // --- Case: Full Sandwich ---
+                    // Measure " word "
+                    // word_start-1 is the leading space. i is the trailing space.
+                    orig_next := ptr[i + 1]
+                    ptr[i + 1] = 0
+                    
+                    // This now measures: [Space][Word][Space][Null]
+                    sandwich_m := rl.MeasureTextEx(font, cstring(&ptr[word_start - 1]), style.font_size, style.text_spacing).x
+                    added_width := sandwich_m - space_width
+                    
+                    ptr[i + 1] = orig_next
+                    
+                    if current_line_width + added_width <= max_width {
+                        current_line_width += added_width
+                    } else {
+                        // WRAP
+                        ptr[word_start - 1] = '\n'
+                        
+                        // Re-measure word as start of line ("word ")
+                        orig_next_wrap := ptr[i + 1]
+                        ptr[i + 1] = 0
+                        full_m := rl.MeasureTextEx(font, cstring(&ptr[word_start]), style.font_size, style.text_spacing).x
+                        current_line_width = full_m - space_width
+                        ptr[i + 1] = orig_next_wrap
+                    }
+                }
             }
+            if curr == '\n' {
+                current_line_width = 0
+            }
+            word_start = i + 1
         }
+        if curr == 0 do break
     }
-    return strings.clone_to_cstring(strings.to_string(builder), context.temp_allocator)
+    return cstring(&buf[0])
 }
 
 label_fit_content_w :: proc(label: ^Label) {
