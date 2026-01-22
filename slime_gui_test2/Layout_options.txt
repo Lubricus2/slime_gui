@@ -1,0 +1,90 @@
+Layout options brainstorming
+Trying to come up and define diffent possible layout options. It's not meant to be a list of what could be used to help figure out what subset makes more sence, what is orthogonal and what combination works together and creates an as simple, easy to use layout engine as possible.
+Some descriptive names for the chosen otpions are also needed.
+It will also bleed into the design of the styling system, 
+
+The Sizing Model (How big?)
+	Constraints
+	Fixed
+		with, height in specific units (pixels, mm, em / Text-Size)
+		use the style values min or max?
+		units could be relative to parent size
+	Relative
+		fit content, minimize so the children and padding. Content can be different for different widgets.
+		Stretch (Flex): takes up a protion of the remaining space
+			weights take use availabe space proportionally to the weights.
+			fit in parent, take all the space
+			fit in parent, if more with this option divide the space equally
+			% of whole parent space
+			% of available parent space, if several children with this option and all don't fit, then divide the space proportionally to the % values
+			Stretch the spaces/spread? 
+		have min and or max values, Could be replaced by an weight system
+		
+		Manual placed (Foating) widgets should be ignored when doing Relative sizing
+
+The Positioning Model (The "Where?"), Placing widgets
+	Manual (Floating)
+	The children desides where they should be placed. Ignores siblings and the parent's flow. They are ignor when the parent are sized (.fit_children) and by other flow children
+		Absolute: Relative to the viewport (Screen)  // would say this alternative can easily be replaced with just draw widgets as Relative direct as roots.
+		Relative: Relative to the parent’s top-left corner (ignoring siblings) or Offset = relative to Anchor.
+		Anchor: Pins an object to a corner or edge (e.g., Top-Right, Center) of the parent.  // similar to alignment can it be unified in a good way?
+	Automatic (Flow)
+	Let the Container layout model take over. Rather than having children define where they are relative to siblings, the Parent defines the flow direction.
+		left of last child 
+		right of...
+		below/south of  last child
+		over/north of last child
+	What do if stuff don't fit? 
+		Clip: Hide anything outside the bounds
+		Scroll
+		Wrap: Line breaks of widgets, if they don't fit in a row should they start a new?
+		Shrink
+
+	Flow + alignment?
+
+The Container layot Model (The "Arrangement")
+Boxes in boxes.
+
+Box layout options for children, Only Boxes has children
+	Direction: Horizontal (Row) or Vertical (Column), Horizontal_reverse, Vertical_reverse.
+	Reverse: A boolean flag (e.g., Right-to-Left is just Horizontal + Reverse).  // does this help or is just, building them in reverse order the solution (it changes draw order and auto tab order), how interact with alignment/Justify?  
+	Justify: Alignment along the flow axis (Start, Center, End, Space-Between).
+	Align: Alignment perpendicular to the flow axis (Start, Center, End, Stretch).
+	Gap/spaces: A single value for spacing between siblings (cleaner than margins).
+	Distribution	Leading | SpaceBetween | Evenly
+	Overflow	Visible | Hidden | Scroll | Wrap
+	Can alignment stuff be replaced with an surrondid box with Anchor?
+
+	Table/Grid  // should they be a separate widget or an layout option for Box?
+		ensure that both whole a row and collum has the same width/height.
+		fit children
+		divide up the space of the parent
+	Padding in the styling struct
+
+struct with Value and Unit
+
+enum Unit {
+    Pixels(f32),      // Standard hardware pixels
+    Points(f32),      // DPI-aware (1/72 inch)
+    Mm(f32),		  // DPI-aware (mm)
+    Em(f32),          // Multiplier of current font size
+    Percent(f32),     // % of parent's inner dimension  or percent of the screen or percent of the window.
+    Available(f32),   // % of space left AFTER fixed-size siblings  // use Weigth only  
+    Weight(f32),      // Flex-style: "Take 1 part of the total available"
+}
+
+Style struct
+	min and max size or just a size or even an prefered? Used as default values
+
+Child properties
+	size if fixed
+	min/max constraints of size
+	margins  // instead go with space/gap between child decided by the parent
+	place x,y if float 
+
+Parent properties
+	Direction
+	Alignment/Justify
+	Gap: Gap/space between children
+	Padding:
+	Placing child if child is flow

@@ -101,6 +101,62 @@ text_wrap :: proc(ctext: cstring, max_width: f32, style: ^Style) -> cstring {
     return cstring(&buf[0])
 }
 
+text_clip :: proc(ctext: cstring, max_width: f32, style: ^Style) -> cstring {
+    if ctext == nil || max_width <= 0 do return ctext
+    
+    font := style.font
+    if font.texture.id == 0 { font = rl.GetFontDefault() }
+    
+    input_len := len(ctext)
+    // Allocate +1 for the null terminator
+    buf := make([]u8, input_len + 1, context.temp_allocator)
+    mem.copy(&buf[0], ([^]u8)(ctext), input_len)
+    buf[input_len] = 0
+    
+    ptr := ([^]u8)(&buf[0])
+    
+    if rl.MeasureTextEx(font, cstring(ptr), style.font_size, style.text_spacing).x <= max_width {
+        return cstring(ptr)
+    }
+
+    ellipsis_width := rl.MeasureTextEx(font, "...", style.font_size, style.text_spacing).x
+    
+    if ellipsis_width > max_width do return "."
+
+    // Find the "Break Point", We iterate through the string and find the last character that fits when leaving room for the ellipses.
+    // should it be optimized with an binary search? 
+    current_width: f32 = 0
+    break_index := 0
+    
+    for i := 1; i <= input_len; i += 1 {
+        // Temporarily null terminate at the current character
+        orig := ptr[i]
+        ptr[i] = 0
+        current_width = rl.MeasureTextEx(font, cstring(ptr), style.font_size, style.text_spacing).x
+        ptr[i] = orig
+        
+        // Does this string + ellipses exceed the width? Should it be measured with the elipses for catching the correct kerning?
+        if current_width + ellipsis_width > max_width {
+            break_index = i - 1
+            break
+        }
+    }
+    // Finalize the string, If break_index is valid, place "..." and null terminate
+    if break_index >= 0 {
+        // Ensure we don't write out of bounds
+        if break_index + 3 <= input_len {
+            ptr[break_index] = '.'
+            ptr[break_index + 1] = '.'
+            ptr[break_index + 2] = '.'
+            ptr[break_index + 3] = 0
+        } else {
+            // If the string is too short to replace with "...", just null terminate
+            ptr[break_index] = 0
+        }
+    }
+    return cstring(ptr)
+}
+
 label_fit_content_w :: proc(label: ^Label) {
 	width := measure_text(label.text, label.style)
 	label.rect.width = width + label.style.padding * 2
@@ -109,6 +165,13 @@ label_fit_content_w :: proc(label: ^Label) {
 label_fit_content_h :: proc(label: ^Label) {
 	dim := rl.MeasureTextEx(label.style.font, label.text, label.style.font_size, label.style.text_spacing)
 	label.rect.height = dim.y + label.style.padding * 2
+}
+
+label_wrap_text :: proc(label: ^Label) {
+    if label.wrap {
+        text_max_w :=label.rect.width - 2 * label.style.padding
+        label.text = text_wrap(ctext = label.text, max_width = text_max_w, style = label.style)
+    } 
 }
 
 label_draw :: proc(label: ^Label) {
@@ -133,11 +196,7 @@ label_draw :: proc(label: ^Label) {
         font = rl.GetFontDefault() 
     }
 
-    wrapped_text := text
-    if wrap {
-    	text_max_w := rect.width - 2 * style.padding
-    	wrapped_text = text_wrap(ctext = text, max_width = text_max_w, style = style)
-    } 
+    
 
 	dim := rl.MeasureTextEx(font, text, style.font_size, style.text_spacing)
 
@@ -157,5 +216,5 @@ label_draw :: proc(label: ^Label) {
 	
 	position := rl.Vector2{rect.x + xs, rect.y + ys}
 	
-	rl.DrawTextEx(font = style.font, text = wrapped_text, position = position, fontSize = style.font_size, spacing = style.text_spacing, tint = style_state.text_color)
+	rl.DrawTextEx(font = style.font, text = text, position = position, fontSize = style.font_size, spacing = style.text_spacing, tint = style_state.text_color)
 }

@@ -9,17 +9,33 @@ compute_grid_widths :: proc(box: ^Box) {
     if len(box.children) == 0 do return
     
     cols := max(1, box.cols)
-    // The array is already initialized in begin_box, so just reset values
-    /*
-    for i in 0..<len(box.col_widths) {
-        box.col_widths[i] = 0
-    }
-    */
 
     for child_ref, i in box.children {
         child := get_base(child_ref)
         col_idx := i % cols  // modulu to wrap around the column index
         box.col_widths[col_idx] = max(box.col_widths[col_idx], child.rect.width)
+    }
+}
+
+ref_fit_content_w :: proc(ref: Widget_Ref) {
+    #partial switch ref.kind {
+        case .Box: box_fit_content_w(&gui.boxes.items[ref.idx])
+        case .Label: label_fit_content_w(&gui.labels.items[ref.idx])
+        case: fmt.printfln("width .fit_content with is not supporterd for the widget kind: %v", ref.kind)
+    }
+}
+
+ref_fit_content_h :: proc(ref: Widget_Ref) {
+    #partial switch ref.kind {
+        case .Box: box_fit_content_h(&gui.boxes.items[ref.idx])
+        case .Label: label_fit_content_h(&gui.labels.items[ref.idx])
+        case: fmt.println("height .fit_content height is not supporterd for the widget kind: %v", ref.kind)
+    }
+}
+
+ref_wrap :: proc(ref: Widget_Ref) {
+    #partial switch ref.kind {
+        case .Label: label_wrap_text(&gui.labels.items[ref.idx])
     }
 }
 
@@ -46,15 +62,9 @@ compute_sizes :: proc(ref: Widget_Ref) {
     case Fit:
     	switch w {
     	case .Use_Style:
-    		w_base.rect.width = f32(w_base.style.width)
+    		w_base.rect.width = w_base.style.width
     	case .Fit_Content:
-	        if ref.kind == .Box {
-	        	box_fit_content_w(&gui.boxes.pool.items[ref.idx])
-	    	} else if ref.kind == .Label {
-	    		label_fit_content_w(&gui.labels.pool.items[ref.idx])
-	    	} else {
-	    		fmt.printfln("width .fit_content is not supporterd for the widget kind: %v", ref.kind)
-	    	}
+	        ref_fit_content_w(ref)
     	case .Fit_Parent:
     		if is_root {
     			w_base.rect.width = f32(rl.GetScreenWidth()) // Fix: Fill screen if root
@@ -65,18 +75,11 @@ compute_sizes :: proc(ref: Widget_Ref) {
     	}
     case Size_Range:
     	// todo: calc the same as Fit with clamp min/max
-    	if ref.kind == .Box {
-            box_fit_content_w(&gui.boxes.pool.items[ref.idx])
-        } else if ref.kind == .Label {
-            label_fit_content_w(&gui.labels.pool.items[ref.idx])
-        } else {
-            fmt.printfln("width .fit_content is not supporterd for the widget kind: %v", ref.kind)
-        }
+        ref_fit_content_w(ref)
         w_base.rect.width = max(w_base.rect.width, w.min)
         if w.max != 0 {
             w_base.rect.width = min(w_base.rect.width, w.max)
         }
-    	//w_base.rect.width = clamp(w_base.rect.width, w.min, w.max)
     case Size_Percent:
    		if is_root {
              // Fix: Percent of screen if root
@@ -90,6 +93,11 @@ compute_sizes :: proc(ref: Widget_Ref) {
             w_base.rect.width = 0
         }
 	}
+
+    if w_base.rect.width>0 {
+        ref_wrap(ref)
+    }
+    
 	switch &h in w_base.height_opt {
 	case Size_Pixels:
     	w_base.rect.height = h
@@ -99,12 +107,7 @@ compute_sizes :: proc(ref: Widget_Ref) {
     		w_base.rect.height = f32(w_base.style.height)
     	case .Fit_Content:
     		// calculate size of the childre with the layout options in box // how handle Layouts for roots?
-    		
-    		if ref.kind == .Box {
-	        	box_fit_content_h(&gui.boxes.pool.items[ref.idx])
-	    	} else {
-	    		fmt.println("height .fit_content is not supporterd for the widget kind: %v", ref.kind)
-	    	}
+	        ref_fit_content_h(ref)
     	case .Fit_Parent:
     		if is_root {
                 w_base.rect.height = f32(rl.GetScreenHeight()) // Fix: Fill screen if root
@@ -114,16 +117,11 @@ compute_sizes :: proc(ref: Widget_Ref) {
             }
     	}
     case Size_Range:
-    	if ref.kind == .Box {
-            box_fit_content_h(&gui.boxes.pool.items[ref.idx])
-        } else {
-            fmt.println("height .fit_content is not supporterd for the widget kind: %v", ref.kind)
-        }
-    	//w_base.rect.height = clamp(w_base.rect.height, h.min, h.max)
+    	ref_fit_content_h(ref)
         w_base.rect.height = max(w_base.rect.height, h.min)
         if h.max != 0 {
             w_base.rect.height = min(w_base.rect.height, h.max)
-        }
+        } 
     case Size_Percent:
     	if is_root {
             w_base.rect.height = f32(rl.GetScreenHeight()) * (f32(h.percent) / 100.0)
@@ -269,6 +267,10 @@ compute_size_grow :: proc(ref: Widget_Ref) {
                 } else {
                     // Horizontal layout: fit_parent means "take full height"
                     child.rect.height = parent_content_h
+                }
+                if ref.kind == .Label {
+                    ref_wrap(child_ref)
+                    ref_fit_content_h(child_ref) // Recalculate H based on new wrap
                 }
             }
         }
