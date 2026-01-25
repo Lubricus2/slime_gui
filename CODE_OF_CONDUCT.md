@@ -1,0 +1,2 @@
+Don't be an ass—be a donkey.
+No racism, sexism, harassment, hate speech, or other discriminatory behavior. Arguing about the project is great, but don't let it devolve into personal attacks. If there are personal issues, solve them privately rather than in a public forum. This is a fun project I work on when I feel like it, so don't demand features, fixes, or timelines. Help out if you feel like it, and feel free to fork the project instead of complaining about the progress.

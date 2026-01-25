@@ -1,16 +1,12 @@
 #+private
 package slimeGUI
-//import "core:strings"
 import rl "vendor:raylib"
-//import "core:fmt"
 import "core:mem"
 
 /*
 	widget for showing text that is not interactable
-	Todo: line wrapping and widget sizing? 
-	Todo: text clipping and scrolling
+	Todo: scrolling
 	Todo: cache for text wrapping / wrapping performance
-	Todo: integrate text_wrap() and label_fit_content_h() into the layouting system with stuff getting done in the right order
 */
 
 Label :: struct {
@@ -18,7 +14,7 @@ Label :: struct {
 	text : cstring,
 	align_text_h: Align_H,
 	align_text_v: Align_V,
-	wrap: bool,
+	overflow: Overflow_Policy,
 }
 
 // c style pointer hell magic for efficient handling of c string idioticity 
@@ -101,61 +97,110 @@ text_wrap :: proc(ctext: cstring, max_width: f32, style: ^Style) -> cstring {
     return cstring(&buf[0])
 }
 
-text_clip :: proc(ctext: cstring, max_width: f32, style: ^Style) -> cstring {
-    if ctext == nil || max_width <= 0 do return ctext
-    
+// text clip with ellipses // can it break utf8 characters?
+text_clip_elli :: proc(ctext: cstring, max_width: f32, style: ^Style) -> cstring {
+    if ctext == nil || max_width <= 0 do return ""
+
     font := style.font
-    if font.texture.id == 0 { font = rl.GetFontDefault() }
-    
+    if font.texture.id == 0 {
+        font = rl.GetFontDefault()
+    }
+
+    if rl.MeasureTextEx(font, ctext, style.font_size, style.text_spacing).x <= max_width {
+        return ctext
+    }
+
+    // Prepare mutable buffer on temp_allocator
+    // We need space for: original text + "..." + null terminator
     input_len := len(ctext)
-    // Allocate +1 for the null terminator
+    buf := make([]u8, input_len + 4, context.temp_allocator)
+    mem.copy(&buf[0], ([^]u8)(ctext), input_len)
+    
+    // Check if even the ellipsis fits
+    if rl.MeasureTextEx(font, "...", style.font_size, style.text_spacing).x > max_width {
+        return "." 
+    }
+
+    // Binary Search for the break point
+    low := 0
+    high := input_len
+    break_idx := 0
+
+    ellipsis_ptr := raw_data(string("...\x00"))
+
+    for low <= high {
+        mid := low + (high - low) / 2
+        
+        // We need to save 4 bytes because we write "..." AND a null terminator
+        saved: [4]u8
+        remaining := input_len - mid
+        copy_len := min(remaining, 4)
+        mem.copy(&saved[0], &buf[mid], copy_len)
+
+        // Inject ellipsis at current mid point to measure total width
+        mem.copy(&buf[mid], ellipsis_ptr, 4)
+        current_width := rl.MeasureTextEx(font, cstring(&buf[0]), style.font_size, style.text_spacing).x
+        mem.copy(&buf[mid], &saved[0], copy_len)
+        
+        if current_width <= max_width {
+            break_idx = mid
+            low = mid + 1
+        } else {
+            high = mid - 1
+        }
+    }
+
+    // Finalize the string
+    mem.copy(&buf[break_idx], ellipsis_ptr, 4)
+
+    return cstring(&buf[0])
+}
+
+//text_clip without ellipses  // can it break utf8 characters?
+text_clip :: proc(ctext: cstring, max_width: f32, style: ^Style) -> cstring {
+    if ctext == nil || max_width <= 0 do return ""
+
+    font := style.font
+    if font.texture.id == 0 {
+        font = rl.GetFontDefault()
+    }
+
+    // Quick exit if the whole string fits
+    if rl.MeasureTextEx(font, ctext, style.font_size, style.text_spacing).x <= max_width {
+        return ctext
+    }
+
+    // Setup mutable buffer on temp_allocator
+    input_len := len(ctext)
     buf := make([]u8, input_len + 1, context.temp_allocator)
     mem.copy(&buf[0], ([^]u8)(ctext), input_len)
-    buf[input_len] = 0
     
-    ptr := ([^]u8)(&buf[0])
-    
-    if rl.MeasureTextEx(font, cstring(ptr), style.font_size, style.text_spacing).x <= max_width {
-        return cstring(ptr)
-    }
+    low := 1 // Start at 1 to handle the empty string case naturally
+    high := input_len
+    break_idx := 0
 
-    ellipsis_width := rl.MeasureTextEx(font, "...", style.font_size, style.text_spacing).x
-    
-    if ellipsis_width > max_width do return "."
-
-    // Find the "Break Point", We iterate through the string and find the last character that fits when leaving room for the ellipses.
-    // should it be optimized with an binary search? 
-    current_width: f32 = 0
-    break_index := 0
-    
-    for i := 1; i <= input_len; i += 1 {
-        // Temporarily null terminate at the current character
-        orig := ptr[i]
-        ptr[i] = 0
-        current_width = rl.MeasureTextEx(font, cstring(ptr), style.font_size, style.text_spacing).x
-        ptr[i] = orig
+    for low <= high {
+        mid := low + (high - low) / 2
         
-        // Does this string + ellipses exceed the width? Should it be measured with the elipses for catching the correct kerning?
-        if current_width + ellipsis_width > max_width {
-            break_index = i - 1
-            break
-        }
-    }
-    // Finalize the string, If break_index is valid, place "..." and null terminate
-    if break_index >= 0 {
-        // Ensure we don't write out of bounds
-        if break_index + 3 <= input_len {
-            ptr[break_index] = '.'
-            ptr[break_index + 1] = '.'
-            ptr[break_index + 2] = '.'
-            ptr[break_index + 3] = 0
+        // Temporarily null terminate at mid point
+        orig := buf[mid]
+        buf[mid] = 0
+        current_width := rl.MeasureTextEx(font, cstring(&buf[0]), style.font_size, style.text_spacing).x
+        buf[mid] = orig
+        
+        if current_width <= max_width {
+            break_idx = mid
+            low = mid + 1
         } else {
-            // If the string is too short to replace with "...", just null terminate
-            ptr[break_index] = 0
+            high = mid - 1
         }
     }
-    return cstring(ptr)
+
+    // Finalize: null terminate at the exact break index
+    buf[break_idx] = 0
+    return cstring(&buf[0])
 }
+
 
 label_fit_content_w :: proc(label: ^Label) {
 	width := measure_text(label.text, label.style)
@@ -168,8 +213,8 @@ label_fit_content_h :: proc(label: ^Label) {
 }
 
 label_wrap_text :: proc(label: ^Label) {
-    if label.wrap {
-        text_max_w :=label.rect.width - 2 * label.style.padding
+    if label.overflow == .Wrap {
+        text_max_w := label.rect.width - 2 * label.style.padding
         label.text = text_wrap(ctext = label.text, max_width = text_max_w, style = label.style)
     } 
 }
@@ -196,7 +241,11 @@ label_draw :: proc(label: ^Label) {
         font = rl.GetFontDefault() 
     }
 
-    
+    if (overflow == .Ellipsis) {
+        text = text_clip_elli(text, rect.width - 2 * style.padding, style)
+    } else if (overflow == .Clip) {
+        text = text_clip(text, rect.width - 2 * style.padding, style)
+    }
 
 	dim := rl.MeasureTextEx(font, text, style.font_size, style.text_spacing)
 

@@ -21,6 +21,7 @@ ref_fit_content_w :: proc(ref: Widget_Ref) {
     #partial switch ref.kind {
         case .Box: box_fit_content_w(&gui.boxes.items[ref.idx])
         case .Label: label_fit_content_w(&gui.labels.items[ref.idx])
+        case .Button: button_fit_content_w(&gui.buttons.items[ref.idx])
         case: fmt.printfln("width .fit_content with is not supporterd for the widget kind: %v", ref.kind)
     }
 }
@@ -29,6 +30,7 @@ ref_fit_content_h :: proc(ref: Widget_Ref) {
     #partial switch ref.kind {
         case .Box: box_fit_content_h(&gui.boxes.items[ref.idx])
         case .Label: label_fit_content_h(&gui.labels.items[ref.idx])
+        case .Button: button_fit_content_h(&gui.buttons.items[ref.idx])
         case: fmt.println("height .fit_content height is not supporterd for the widget kind: %v", ref.kind)
     }
 }
@@ -36,6 +38,7 @@ ref_fit_content_h :: proc(ref: Widget_Ref) {
 ref_wrap :: proc(ref: Widget_Ref) {
     #partial switch ref.kind {
         case .Label: label_wrap_text(&gui.labels.items[ref.idx])
+        case .Button: button_wrap_text(&gui.buttons.items[ref.idx])
     }
 }
 

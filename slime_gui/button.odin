@@ -12,6 +12,24 @@ Only one click is registred for each is clicked check, should it return number o
 Button :: struct {
 	using Base: Widget_Base,
 	title: cstring,
+	overflow: Overflow_Policy,
+}
+
+button_fit_content_w :: proc(button: ^Button) {
+	width := measure_text(button.title, button.style)
+	button.rect.width = width + button.style.padding * 2
+}
+
+button_fit_content_h :: proc(button: ^Button) {
+	dim := rl.MeasureTextEx(button.style.font, button.title, button.style.font_size, button.style.text_spacing)
+	button.rect.height = dim.y + button.style.padding * 2
+}
+
+button_wrap_text :: proc(button: ^Button) {
+    if button.overflow == .Wrap {
+        text_max_w := button.rect.width - 2 * button.style.padding
+        button.title = text_wrap(ctext = button.title, max_width = text_max_w, style = button.style)
+    } 
 }
 
 // checking if button is clicked and is handling the is active logic
@@ -52,6 +70,12 @@ button_draw :: proc(button: ^Button) {
 	} else {
     	style_state = button.style.idle
 	}
+
+	if (button.overflow == .Ellipsis) {
+        button.title = text_clip_elli(button.title, button.rect.width - 2 * button.style.padding, button.style)
+    } else if (button.overflow == .Clip) {
+        button.title = text_clip(button.title, button.rect.width - 2 * button.style.padding, button.style)
+    }
 
 	draw_rect(button.rect, button.style, style_state)
 

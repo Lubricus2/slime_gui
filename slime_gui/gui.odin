@@ -79,6 +79,14 @@ Place_V :: union {
 	Percent, 
 }
 
+Overflow_Policy :: enum {
+    Overflow, // Let stuff be drawn outside the widget
+    Clip,     
+    Wrap,     // Move to next line/row
+    Scroll,   // Enable scrolling logic
+    Ellipsis, // Clip + "..." (mainly for text)
+}
+
 // placement (flow vs absolute)
 Flow :: enum { After_Last_Child, Below_Last_Child, } // flow marker
 Place_xy :: struct { x: Place_H, y: Place_V, }
@@ -457,7 +465,7 @@ button :: proc(text: cstring, style: ^Style = nil, width: Size_Option = .Use_Sty
     return button_is_clicked(comp)
 }
 
-label :: proc(text: cstring, align_text_h: Align_H = .Left, align_text_v: Align_V = .Top, wrap := false, style: ^Style = nil, width :Size_Option = .Use_Style, height : Size_Option = .Use_Style, place: Place_Option = .After_Last_Child, id_salt := 0, c_loc := #caller_location) {
+label :: proc(text: cstring, align_text_h: Align_H = .Left, align_text_v: Align_V = .Top, overflow : Overflow_Policy = .Overflow, style: ^Style = nil, width :Size_Option = .Use_Style, height : Size_Option = .Use_Style, place: Place_Option = .After_Last_Child, id_salt := 0, c_loc := #caller_location) {
 	comp, idx := build_widget(&gui.labels, id_salt, c_loc, style)
     // Reset ephemeral base data
     comp.width_opt = width
@@ -467,7 +475,7 @@ label :: proc(text: cstring, align_text_h: Align_H = .Left, align_text_v: Align_
 	comp.text = text
 	comp.align_text_h = align_text_h
 	comp.align_text_v = align_text_v
-	comp.wrap = wrap
+	comp.overflow = overflow
 	// Create reference
 	ref := Widget_Ref{ kind = .Label, idx = idx }
 	// Link to parent (The Stack)

@@ -1,12 +1,12 @@
-/*
-Test procedures for the gui library
-*/
-
 package slimeGUI_test
 
 import rl "vendor:raylib"
 import sg "../slime_gui"
 import "core:fmt"
+
+/*
+Test procedures for the gui library
+*/
 
 Test_State :: struct {
     ui_font: rl.Font,
@@ -107,7 +107,7 @@ test_suite :: proc() {
         // 2. NESTED LAYOUT TEST (Left Side)
         // Testing boxes inside boxes with mixed sizing
         sg.begin_box(width = 300, height = .Fit_Parent, place = sg.Place_xy{.Left, .Center}, style = sg.get_default_style(),)
-            sg.label("--- Nested Test ---")
+            sg.label("--- Nested Test ---", overflow = .Ellipsis)
             
             // Inner box 1
             sg.begin_box(layout = .Vertical, spacing = 2, width = .Fit_Parent)
@@ -115,7 +115,7 @@ test_suite :: proc() {
                 // Inner box 2 (nested deeper)
                 sg.begin_box(layout = .Horizontal, width = .Fit_Parent)
                     style := sg.get_default_style()
-                    tstyle := style
+                    tstyle := style^
                     tstyle.hover.border_width = 20
                     tstyle.hover.bg_color = rl.BLANK
                     tstyle.idle.bg_color = rl.WHITE
